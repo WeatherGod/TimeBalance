@@ -44,22 +44,14 @@ class TBScheduler(object) :
         return theTask
 
 
-class task(object) :
-    def __init__(self, updatePeriod, timeToComplete, name) :
-        self.U = updatePeriod
-        self.T = timeToComplete
-        self.name = name
-
-
-
-
 
 if __name__ == '__main__' :
+    import ScanRadSim.task as task
     #import matplotlib.pyplot as plt
 
     # Just a quick test...
-    surveillance = task(1, 1, "surveillance")
-    tasks = [task(update, time, name) for update, time, name
+    surveillance = task.Task(1, 1, "surveillance")
+    tasks = [task.Task(update, time, name) for update, time, name
              in zip((20, 35),
                     (10, 14),
                     ("foo", "bar"))]
