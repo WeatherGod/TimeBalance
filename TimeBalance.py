@@ -20,9 +20,12 @@ def argfind_index(item, values) :
 
 
 class TBScheduler(object) :
-    def __init__(self, surveil_task) :
+    def __init__(self, surveil_task, concurrent_max=1) :
+        assert(concurrent_max >= 1)
         self.tasks = []
         self.T_B = []
+        self.active_tasks = [None] * concurrent_max
+        self._active_time = [timedelta() for index in range(concurrent_max)]
 
         self.surveil_task = surveil_task
 
@@ -35,7 +38,14 @@ class TBScheduler(object) :
         #       a timedelta object isn't in-place. Go figure...
         for index in range(len(self.T_B)) :
             self.T_B[index] += timeElapsed
-        
+
+        for index, aTask in enumerate(self.active_tasks) :
+            if aTask is not None :
+                self._active_time[index] += timeElapsed
+                if self._active_time[index] >= aTask.T :
+                    # The task is finished its fragment!
+                    self._active_time[index] = timedelta()
+                    self.active_tasks[index] = None
 
     def add_tasks(self, tasks) :
         # Initialize the T_B for each task
@@ -51,7 +61,14 @@ class TBScheduler(object) :
             del self.tasks[findargs[anItem]]
             del self.T_B[findargs[anItem]]
 
+    def is_available(self) :
+        return any([(activeTask is None) for
+                     activeTask in self.active_tasks])
+
     def next_task(self) :
+        if not self.is_available() :
+            return None
+
         # -1 shall indicate to use the fallback task of surveillance.
         doTask = -1
 
@@ -65,6 +82,12 @@ class TBScheduler(object) :
                 self.T_B[availTask] -= self.tasks[availTask].U
 
         theTask = self.tasks[doTask] if doTask >= 0 else self.surveil_task
+
+        for index, activeTask in enumerate(self.active_tasks) :
+            if activeTask is None :
+                self.active_tasks[index] = theTask
+                self._active_time[index] = timedelta()
+                break
         
         return theTask
 
@@ -85,7 +108,8 @@ if __name__ == '__main__' :
                     (range(30), range(14)))]
     sched = TBScheduler(surveillance)
     
-    print sched.next_task()
+    theTask = sched.next_task()
+    sched.increment_timer(theTask.T)
 
     timer = timedelta(seconds=0)
     sched.add_tasks(tasks)
