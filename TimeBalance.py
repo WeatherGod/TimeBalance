@@ -42,10 +42,9 @@ class TBScheduler(object) :
         for index, aTask in enumerate(self.active_tasks) :
             if aTask is not None :
                 self._active_time[index] += timeElapsed
-                if self._active_time[index] >= aTask.T :
-                    # The task is finished its fragment!
-                    self._active_time[index] = timedelta()
-                    self.active_tasks[index] = None
+
+        # Remove tasks that are finished from the active slots.
+        self.rm_deactive()
 
     def add_tasks(self, tasks) :
         # Initialize the T_B for each task
@@ -53,15 +52,25 @@ class TBScheduler(object) :
         self.tasks.extend(tasks)
 
     def rm_tasks(self, tasks) :
+        # Slate these tasks for removal.
+        # Note that you can't remove active tasks until they are done.
+        # We will go ahead and remove any inactive tasks, and defer
+        # the removal of active tasks until later.
+        # Impementation Note: This actually isn't all that complicated,
+        #                     due to the reference counting of python.
+        #                     Just delete the task from the self.tasks
+        #                     list and when the task is done in the
+        #                     active list, it will finally be deleted.
         findargs = [argfind_index(aTask, self.tasks) for aTask in tasks]
-
         args = np.argsort(findargs)[::-1]
-
         for anItem in args :
             del self.tasks[findargs[anItem]]
             del self.T_B[findargs[anItem]]
 
     def is_available(self) :
+        """
+        Does the system have an available slot for a task execution?
+        """
         return any([(activeTask is None) for
                      activeTask in self.active_tasks])
 
@@ -76,20 +85,49 @@ class TBScheduler(object) :
         if len(self.tasks) > 0 :
             availTask = argmax_index(self.T_B)
 
-            if self.T_B[availTask] >= self.actionTB :
+            # FIXME: A bit rudimentary, but essentially,
+            #       if the next task is not ready, then
+            #       fall-back to the surveillance task.
+            #       This should probably never happen if
+            #       the update and time-fragment numbers
+            #       are consistent, but this is just a
+            #       robustness-check.
+            if (not self.tasks[availTask].is_running and
+                self.T_B[availTask] >= self.actionTB) :
                 doTask = availTask
                 # decrement the T_B of the task by the update time.
                 self.T_B[availTask] -= self.tasks[availTask].U
 
         theTask = self.tasks[doTask] if doTask >= 0 else self.surveil_task
 
+        # Another check to see if the task is already active.
+        # Essentially, we are seeing if the surveillance task
+        # is already active.
+        # In which case, just return None.
+        if theTask.is_running :
+            return None
+        else :
+            self.add_active(theTask)
+            return theTask
+
+    def add_active(self, theTask) :
         for index, activeTask in enumerate(self.active_tasks) :
             if activeTask is None :
+                theTask.is_running = True
                 self.active_tasks[index] = theTask
                 self._active_time[index] = timedelta()
                 break
-        
-        return theTask
+
+    def rm_deactive(self) :        
+        for index, aTask in enumerate(self.active_tasks) :
+            if aTask is not None :
+                if self._active_time[index] >= aTask.T :
+                    # The task is finished its fragment!
+                    aTask.is_running = False
+                    self._active_time[index] = timedelta()
+                    self.active_tasks[index] = None
+
+
 
 
 
@@ -107,11 +145,9 @@ if __name__ == '__main__' :
                     (timedelta(seconds=10), timedelta(seconds=14)),
                     (range(30), range(14)))]
     sched = TBScheduler(surveillance)
-    
-    theTask = sched.next_task()
-    sched.increment_timer(theTask.T)
 
     timer = timedelta(seconds=0)
+    time_increm = timedelta(seconds=1)
     sched.add_tasks(tasks)
     """
     tb1 = []
@@ -125,8 +161,9 @@ if __name__ == '__main__' :
     """
     while timer.seconds < 110 :
         theTask = sched.next_task()
-        sched.increment_timer(theTask.T)
-        print "%.3d %.2d %.2d" % (timer.seconds, theTask.T.seconds, theTask.U.seconds)
+        sched.increment_timer(time_increm)
+        if theTask is not None :
+            print "%.3d %.2d %.2d" % (timer.seconds, theTask.T.seconds, theTask.U.seconds)
 
         """
         if theTask.name == 'foo' :
@@ -142,7 +179,7 @@ if __name__ == '__main__' :
             times1.append(timer + theTask.T)
             tb1.append(sched.T_B[0])
         """
-        timer += theTask.T
+        timer += time_increm
 
 
 
