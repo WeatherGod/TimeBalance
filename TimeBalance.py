@@ -29,6 +29,14 @@ class TBScheduler(object) :
         # The T_B value threshold for action
         self.actionTB = timedelta()
 
+    def increment_timer(self, timeElapsed) :
+        # Increment the T_B of all tasks by the selected task time
+        # NOTE: can't do `tb += theTask.T` because += operator on
+        #       a timedelta object isn't in-place. Go figure...
+        for index in range(len(self.T_B)) :
+            self.T_B[index] += timeElapsed
+        
+
     def add_tasks(self, tasks) :
         # Initialize the T_B for each task
         self.T_B.extend([timedelta()] * len(tasks))
@@ -58,12 +66,6 @@ class TBScheduler(object) :
 
         theTask = self.tasks[doTask] if doTask >= 0 else self.surveil_task
         
-        # Decrement the T_B of all tasks by the selected task time
-        # NOTE: can't do `tb += theTask.T` because += operator on
-        #       a timedelta object isn't in-place. Go figure...
-        for index in range(len(self.T_B)) :
-            self.T_B[index] += theTask.T
-
         return theTask
 
 
@@ -99,6 +101,7 @@ if __name__ == '__main__' :
     """
     while timer.seconds < 110 :
         theTask = sched.next_task()
+        sched.increment_timer(theTask.T)
         print "%.3d %.2d %.2d" % (timer.seconds, theTask.T.seconds, theTask.U.seconds)
 
         """
@@ -115,7 +118,6 @@ if __name__ == '__main__' :
             times1.append(timer + theTask.T)
             tb1.append(sched.T_B[0])
         """
-
         timer += theTask.T
 
 
