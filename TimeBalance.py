@@ -3,6 +3,8 @@ from operator import itemgetter
 from datetime import timedelta
 import numpy as np
 
+from ScanRadSim.ScanSim import _to_seconds
+
 # given an iterable of pairs return the key corresponding to the greatest value
 def argmax(pairs):
     return max(pairs, key=itemgetter(1))[0]
@@ -31,6 +33,14 @@ class TBScheduler(object) :
 
         # The T_B value threshold for action
         self.actionTB = timedelta()
+
+    def occupancy(self) :
+        return sum([_to_seconds(aTask.T)/_to_seconds(aTask.U) for
+                    aTask in (self.tasks + [self.surveil_task])])
+
+    def acquisition(self) :
+        return max([_to_seconds(aTask.U) for aTask in
+                     (self.tasks + [self.surveil_task])])
 
     def increment_timer(self, timeElapsed) :
         # Increment the T_B of all tasks by the selected task time
