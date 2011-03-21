@@ -25,7 +25,7 @@ class TBScheduler(object) :
         self.tasks = []
         self.T_B = []
         self.active_tasks = [None] * concurrent_max
-        self._active_time = [timedelta() for index in range(concurrent_max)]
+        self._active_time = [None] * concurrent_max
 
         self.surveil_task = surveil_task
 
@@ -118,13 +118,14 @@ class TBScheduler(object) :
                 self._active_time[index] = timedelta()
                 break
 
-    def rm_deactive(self) :        
-        for index, aTask in enumerate(self.active_tasks) :
+    def rm_deactive(self) :
+        for index, (aTask, actTime) in enumerate(zip(self.active_tasks,
+                                                     self._active_time)) :
             if aTask is not None :
-                if self._active_time[index] >= aTask.T :
+                if actTime >= aTask.T :
                     # The task is finished its fragment!
                     aTask.is_running = False
-                    self._active_time[index] = timedelta()
+                    self._active_time[index] = None
                     self.active_tasks[index] = None
 
 
