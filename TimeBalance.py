@@ -55,33 +55,27 @@ class TBScheduler(TaskScheduler) :
 
         return findargs, args
 
-    def next_task(self) :
-        if not self.is_available() :
-            return None
+    def next_jobs(self) :
+        next_jobs = []
+        while self.is_available() :
+            # -1 shall indicate to use the fallback job of surveillance.
+            doJob = -1
 
-        # -1 shall indicate to use the fallback job of surveillance.
-        doJob = -1
+            # Determine the next job to execute
+            if len(self.jobs) > 0 :
+                availJob = argmax_index(self.T_B)
 
-        # Determine the next job to execute
-        if len(self.jobs) > 0 :
-            availJob = argmax_index(self.T_B)
+                if self.T_B[availJob] >= self.actionTB :
+                    doJob = availJob
+                    # decrement the T_B of the job by the update time.
+                    self.T_B[availJob] -= self.jobs[availJob].U
 
-            if self.T_B[availJob] >= self.actionTB :
-                doJob = availJob
-                # decrement the T_B of the job by the update time.
-                self.T_B[availJob] -= self.jobs[availJob].U
+            theJob = self.jobs[doJob] if doJob >= 0 else self.surveil_job
 
-        theJob = self.jobs[doJob] if doJob >= 0 else self.surveil_job
-
-        # Another check to see if the job is already active.
-        # Essentially, we are seeing if the surveillance job
-        # is already active.
-        # In which case, just return None.
-        if theJob.is_running :
-            return None
-        else :
             self.add_active(theJob)
-            return theJob
+            next_jobs.append(theJob)
+
+        return next_jobs
 
 
 if __name__ == '__main__' :
@@ -90,10 +84,10 @@ if __name__ == '__main__' :
     #import matplotlib.pyplot as plt
 
     # Just a quick test...
-    surveillance = task.ScanJob(timedelta(seconds=1),
-                            timedelta(seconds=1),
-                            range(10))
-    jobs = [task.ScanJob(update, time, radials) for update, time, radials
+    surveillance = task.ScanJob(timedelta(seconds=1), range(10),
+                            timedelta(seconds=1))
+
+    jobs = [task.ScanJob(update, radials, time) for update, time, radials
              in zip((timedelta(seconds=20), timedelta(seconds=35)),
                     (timedelta(seconds=10), timedelta(seconds=14)),
                     (range(30), range(14)))]
@@ -113,10 +107,10 @@ if __name__ == '__main__' :
     times2.append(timer)
     """
     while timer.seconds < 110 :
-        theTask = sched.next_task()
+        theJobs = sched.next_jobs()
         sched.increment_timer(time_increm)
-        if theTask is not None :
-            print "%.3d %.2d %.2d" % (timer.seconds, theTask.T.seconds, theTask.U.seconds)
+        if len(theJobs) > 0 :
+            print "%.3d %.2d %.2d" % (timer.seconds, theJobs[0].T.seconds, theJobs[0].U.seconds)
 
         """
         if theTask.name == 'foo' :
