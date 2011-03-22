@@ -84,13 +84,13 @@ if __name__ == '__main__' :
     #import matplotlib.pyplot as plt
 
     # Just a quick test...
-    surveillance = task.ScanJob(timedelta(seconds=1), range(10),
+    surveillance = task.ScanJob(timedelta(seconds=1), iter(range(10)),
                             timedelta(seconds=1))
 
     jobs = [task.ScanJob(update, radials, time) for update, time, radials
              in zip((timedelta(seconds=20), timedelta(seconds=35)),
                     (timedelta(seconds=10), timedelta(seconds=14)),
-                    (range(30), range(14)))]
+                    (iter(range(30)), iter(range(14))))]
     sched = TBScheduler(surveillance)
 
     timer = timedelta(seconds=0)
