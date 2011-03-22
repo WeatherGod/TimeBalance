@@ -4,6 +4,7 @@ from datetime import timedelta
 import numpy as np
 
 from ScanRadSim.ScanSim import _to_seconds
+from ScanRadSim.TaskScheduler import TaskScheduler
 
 # given an iterable of pairs return the key corresponding to the greatest value
 def argmax(pairs):
@@ -21,18 +22,15 @@ def argfind_index(item, values) :
     raise ValueError("Could not find item in list of values")
 
 
-class TBScheduler(object) :
+class TBScheduler(TaskScheduler) :
     def __init__(self, surveil_task, concurrent_max=1) :
-        assert(concurrent_max >= 1)
         self.tasks = []
         self.T_B = []
-        self.active_tasks = [None] * concurrent_max
-        self._active_time = [None] * concurrent_max
-
         self.surveil_task = surveil_task
-
         # The T_B value threshold for action
         self.actionTB = timedelta()
+
+        TaskScheduler.__init__(self, concurrent_max)
 
     def occupancy(self) :
         return sum([_to_seconds(aTask.T)/_to_seconds(aTask.U) for
@@ -49,12 +47,7 @@ class TBScheduler(object) :
         for index in range(len(self.T_B)) :
             self.T_B[index] += timeElapsed
 
-        for index, aTask in enumerate(self.active_tasks) :
-            if aTask is not None :
-                self._active_time[index] += timeElapsed
-
-        # Remove tasks that are finished from the active slots.
-        self.rm_deactive()
+        TaskScheduler.increment_timer(self, timeElapsed)
 
     def add_tasks(self, tasks) :
         # Initialize the T_B for each task
@@ -76,13 +69,6 @@ class TBScheduler(object) :
         for anItem in args :
             del self.tasks[findargs[anItem]]
             del self.T_B[findargs[anItem]]
-
-    def is_available(self) :
-        """
-        Does the system have an available slot for a task execution?
-        """
-        return any([(activeTask is None) for
-                     activeTask in self.active_tasks])
 
     def next_task(self) :
         if not self.is_available() :
@@ -119,27 +105,6 @@ class TBScheduler(object) :
         else :
             self.add_active(theTask)
             return theTask
-
-    def add_active(self, theTask) :
-        for index, activeTask in enumerate(self.active_tasks) :
-            if activeTask is None :
-                theTask.is_running = True
-                self.active_tasks[index] = theTask
-                self._active_time[index] = timedelta()
-                break
-
-    def rm_deactive(self) :
-        for index, (aTask, actTime) in enumerate(zip(self.active_tasks,
-                                                     self._active_time)) :
-            if aTask is not None :
-                if actTime >= aTask.T :
-                    # The task is finished its fragment!
-                    aTask.is_running = False
-                    self._active_time[index] = None
-                    self.active_tasks[index] = None
-
-
-
 
 
 if __name__ == '__main__' :
