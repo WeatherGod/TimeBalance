@@ -14,97 +14,74 @@ def argmax(pairs):
 def argmax_index(values):
     return argmax(izip(count(), values))
 
-def argfind_index(item, values) :
-    for index, aVal in enumerate(values) :
-        if item is aVal :
-            return index
-
-    raise ValueError("Could not find item in list of values")
-
 
 class TBScheduler(TaskScheduler) :
-    def __init__(self, surveil_task, concurrent_max=1) :
-        self.tasks = []
+    def __init__(self, surveil_job, concurrent_max=1) :
+        TaskScheduler.__init__(self, concurrent_max)
+
         self.T_B = []
-        self.surveil_task = surveil_task
+        self.surveil_job = surveil_job
         # The T_B value threshold for action
         self.actionTB = timedelta()
 
-        TaskScheduler.__init__(self, concurrent_max)
+
 
     def occupancy(self) :
-        return sum([_to_seconds(aTask.T)/_to_seconds(aTask.U) for
-                    aTask in (self.tasks + [self.surveil_task])])
+        return sum([_to_seconds(aJob.T)/_to_seconds(aJob.U) for
+                    aJob in (self.jobs + [self.surveil_job])])
 
     def acquisition(self) :
-        return max([_to_seconds(aTask.U) for aTask in
-                     (self.tasks + [self.surveil_task])])
+        return max([_to_seconds(aJob.U) for aJob in
+                     (self.jobs + [self.surveil_job])])
 
     def increment_timer(self, timeElapsed) :
-        # Increment the T_B of all tasks by the selected task time
-        # NOTE: can't do `tb += theTask.T` because += operator on
+        # Increment the T_B of all jobs by the elapsed time
+        # NOTE: can't do `tb += timeElapsed` because += operator on
         #       a timedelta object isn't in-place. Go figure...
         for index in range(len(self.T_B)) :
             self.T_B[index] += timeElapsed
 
         TaskScheduler.increment_timer(self, timeElapsed)
 
-    def add_tasks(self, tasks) :
-        # Initialize the T_B for each task
-        self.T_B.extend([timedelta()] * len(tasks))
-        self.tasks.extend(tasks)
+    def add_jobs(self, jobs) :
+        TaskScheduler.add_jobs(self, jobs)
+        # Initialize the T_B for each job
+        self.T_B.extend([timedelta()] * len(jobs))
 
-    def rm_tasks(self, tasks) :
-        # Slate these tasks for removal.
-        # Note that you can't remove active tasks until they are done.
-        # We will go ahead and remove any inactive tasks, and defer
-        # the removal of active tasks until later.
-        # Impementation Note: This actually isn't all that complicated,
-        #                     due to the reference counting of python.
-        #                     Just delete the task from the self.tasks
-        #                     list and when the task is done in the
-        #                     active list, it will finally be deleted.
-        findargs = [argfind_index(aTask, self.tasks) for aTask in tasks]
-        args = np.argsort(findargs)[::-1]
+    def rm_jobs(self, jobs) :
+        findargs, args = TaskScheduler.rm_jobs(self, jobs)
         for anItem in args :
-            del self.tasks[findargs[anItem]]
             del self.T_B[findargs[anItem]]
+
+        return findargs, args
 
     def next_task(self) :
         if not self.is_available() :
             return None
 
-        # -1 shall indicate to use the fallback task of surveillance.
-        doTask = -1
+        # -1 shall indicate to use the fallback job of surveillance.
+        doJob = -1
 
-        # Determine the next task to execute
-        if len(self.tasks) > 0 :
-            availTask = argmax_index(self.T_B)
+        # Determine the next job to execute
+        if len(self.jobs) > 0 :
+            availJob = argmax_index(self.T_B)
 
-            # FIXME: A bit rudimentary, but essentially,
-            #       if the next task is not ready, then
-            #       fall-back to the surveillance task.
-            #       This should probably never happen if
-            #       the update and time-fragment numbers
-            #       are consistent, but this is just a
-            #       robustness-check.
-            if (not self.tasks[availTask].is_running and
-                self.T_B[availTask] >= self.actionTB) :
-                doTask = availTask
-                # decrement the T_B of the task by the update time.
-                self.T_B[availTask] -= self.tasks[availTask].U
+            if self.T_B[availJob] >= self.actionTB :
+                doJob = availJob
+                # decrement the T_B of the job by the update time.
+                self.T_B[availJob] -= self.jobs[availJob].U
 
-        theTask = self.tasks[doTask] if doTask >= 0 else self.surveil_task
+        theJob = self.jobs[doJob] if doJob >= 0 else self.surveil_job
 
-        # Another check to see if the task is already active.
-        # Essentially, we are seeing if the surveillance task
+        # Another check to see if the job is already active.
+        # Essentially, we are seeing if the surveillance job
         # is already active.
         # In which case, just return None.
-        if theTask.is_running :
+        if theJob.is_running :
             return None
         else :
-            self.add_active(theTask)
-            return theTask
+            self.add_active(theJob)
+            return theJob
 
 
 if __name__ == '__main__' :
@@ -113,10 +90,10 @@ if __name__ == '__main__' :
     #import matplotlib.pyplot as plt
 
     # Just a quick test...
-    surveillance = task.Task(timedelta(seconds=1),
-                             timedelta(seconds=1),
-                             range(10))
-    tasks = [task.Task(update, time, radials) for update, time, radials
+    surveillance = task.ScanJob(timedelta(seconds=1),
+                            timedelta(seconds=1),
+                            range(10))
+    jobs = [task.ScanJob(update, time, radials) for update, time, radials
              in zip((timedelta(seconds=20), timedelta(seconds=35)),
                     (timedelta(seconds=10), timedelta(seconds=14)),
                     (range(30), range(14)))]
@@ -124,7 +101,7 @@ if __name__ == '__main__' :
 
     timer = timedelta(seconds=0)
     time_increm = timedelta(seconds=1)
-    sched.add_tasks(tasks)
+    sched.add_jobs(jobs)
     """
     tb1 = []
     tb2 = []
