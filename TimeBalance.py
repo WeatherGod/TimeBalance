@@ -28,7 +28,8 @@ class TBScheduler(TaskScheduler) :
 
     def occupancy(self) :
         return sum([_to_seconds(aJob.T)/_to_seconds(aJob.U) for
-                    aJob in (self.jobs + [self.surveil_job])])
+                    aJob in (self.jobs + [self.surveil_job]) if
+                    aJob.T is not None])
 
     def acquisition(self) :
         return max([_to_seconds(aJob.U) for aJob in
