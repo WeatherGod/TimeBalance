@@ -68,8 +68,8 @@ class TBScheduler(TaskScheduler) :
 
                 if self.T_B[availJob] >= self.actionTB :
                     doJob = availJob
-                    # decrement the T_B of the job by the update time.
-                    self.T_B[availJob] -= self.jobs[availJob].U
+                    # decrement the T_B of the job by the fractional update time.
+                    self.T_B[availJob] -= (self.jobs[availJob].U / len(self.jobs[availJob]._origradials))
 
             theJob = self.jobs[doJob] if doJob >= 0 else self.surveil_job
 
@@ -85,13 +85,13 @@ if __name__ == '__main__' :
     #import matplotlib.pyplot as plt
 
     # Just a quick test...
-    surveillance = task.ScanJob(timedelta(seconds=1), iter(range(10)),
+    surveillance = task.StaticJob(timedelta(seconds=60), (range(1),),
                             timedelta(seconds=1))
 
-    jobs = [task.ScanJob(update, radials, time) for update, time, radials
+    jobs = [task.StaticJob(update, radials, time) for update, time, radials
              in zip((timedelta(seconds=20), timedelta(seconds=35)),
                     (timedelta(seconds=10), timedelta(seconds=14)),
-                    (iter(range(30)), iter(range(14))))]
+                    ((range(1),), (range(1),)))]
     sched = TBScheduler(surveillance)
 
     timer = timedelta(seconds=0)
@@ -107,11 +107,12 @@ if __name__ == '__main__' :
     times1.append(timer)
     times2.append(timer)
     """
+    print "Time Frag Updt"
     while timer.seconds < 110 :
         theJobs = sched.next_jobs()
         sched.increment_timer(time_increm)
         if len(theJobs) > 0 :
-            print "%.3d %.2d %.2d" % (timer.seconds, theJobs[0].T.seconds, theJobs[0].U.seconds)
+            print "%.3d  %2d   %2d" % (timer.seconds, theJobs[0].T.seconds, theJobs[0].U.seconds)
 
         """
         if theTask.name == 'foo' :
