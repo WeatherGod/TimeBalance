@@ -44,7 +44,7 @@ class TBScheduler(TaskScheduler) :
 
         return findargs, args
 
-    def next_jobs(self) :
+    def next_jobs(self, auto_activate=False) :
         next_jobs = []
         while self.is_available() :
             # -1 shall indicate to use the fallback job of surveillance.
@@ -61,7 +61,7 @@ class TBScheduler(TaskScheduler) :
 
             theJob = self.jobs[doJob] if doJob >= 0 else self.surveil_job
 
-            self.add_active(theJob)
+            self.add_active(theJob, auto_activate)
             next_jobs.append(theJob)
 
         return next_jobs
@@ -95,12 +95,14 @@ if __name__ == '__main__' :
     times1.append(timer)
     times2.append(timer)
     """
-    print "Time Frag Updt"
+    basetime = timedelta(seconds=60)
+    print "Time Frag Updt  A     I     O"
     while timer.seconds < 110 :
-        theJobs = sched.next_jobs()
+        theJobs = sched.next_jobs(True)
         sched.increment_timer(time_increm)
         if len(theJobs) > 0 :
-            print "%.3d  %2d   %2d" % (timer.seconds, theJobs[0].T.seconds, theJobs[0].U.seconds)
+            print "%.3d  %2d   %2d   %3d  %.2f   %.3f" % (timer.seconds, theJobs[0].T.seconds, theJobs[0].U.seconds,
+                                       sched.acquisition(), sched.improve_factor(basetime), sched.occupancy())
 
         """
         if theTask.name == 'foo' :
