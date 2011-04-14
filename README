@@ -3,3 +3,11 @@ The implementation follows the description in Reinoso-Rondinel et al. (2010)
 
 [1] R. Reinoso-Rondinel, T. Yu, and S. Torres, “Multifunction Phased-Array Radar: Time Balance Scheduler for Adaptive Weather Sensing,” Journal of Atmospheric and Oceanic Technology, vol. 27, no. 11, pp. 1854-1867, Nov. 2010.
 
+
+Requires NumPy (tested with NumPy 2.0, but earlier version should be usable).
+
+
+Local installation is easy:
+
+$ python setup.py install --user
+
