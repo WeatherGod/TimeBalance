@@ -66,6 +66,69 @@ class TBScheduler(TaskScheduler) :
 
         return next_jobs
 
+# The "Balance Time" scheduler
+class BTScheduler(TaskScheduler) :
+    def __init__(self, surveil_job, concurrent_max=1) :
+        TaskScheduler.__init__(self, concurrent_max)
+
+        self.T_B = []
+        self.surveil_job = surveil_job
+        self.surveil_tb = timedelta(0)
+        # The T_B value threshold for action
+        self.actionTB = timedelta(0)
+
+    def increment_timer(self, timeElapsed) :
+        # Increment the T_B of all jobs by the elapsed time
+        # NOTE: can't do `tb += timeElapsed` because += operator on
+        #       a timedelta object isn't in-place. Go figure...
+        for index in range(len(self.T_B)) :
+            self.T_B[index] += timeElapsed
+
+        self.surveil_tb +=timeElapsed
+
+        TaskScheduler.increment_timer(self, timeElapsed)
+
+    def add_jobs(self, jobs) :
+        TaskScheduler.add_jobs(self, jobs)
+        # Initialize the T_B for each job
+        self.T_B.extend([timedelta(0)] * len(jobs))
+
+    def rm_jobs(self, jobs) :
+        findargs, args = TaskScheduler.rm_jobs(self, jobs)
+        for anItem in args :
+            del self.T_B[findargs[anItem]]
+
+        return findargs, args
+
+    def next_jobs(self, auto_activate=False) :
+        next_jobs = []
+        while self.is_available() :
+            if self.surveil_tb >= self.actionTB :
+                theJob = self.surveil_job
+                self.surveil_tb -= (self.surveil_job.U / len(self.surveil_job._origradials))
+            else :
+                # -1 shall indicate to use the fallback job of surveillance.
+                doJob = -1
+
+                # Determine the next job to execute
+                if len(self.jobs) > 0 :
+                    availJob = argmax_index(self.T_B)
+
+                    if self.T_B[availJob] >= self.actionTB :
+                        doJob = availJob
+                        # decrement the T_B of the job by the fractional update time.
+                        self.T_B[availJob] -= (self.jobs[availJob].U / len(self.jobs[availJob]._origradials))
+
+                theJob = self.jobs[doJob] if doJob >= 0 else self.surveil_job
+
+            self.add_active(theJob, auto_activate)
+            next_jobs.append(theJob)
+
+        return next_jobs
+
+
+
+
 
 if __name__ == '__main__' :
     import ScanRadSim.task as task
